@@ -80,7 +80,7 @@ PRESET_PUZZLES = {
     },
     "【精選題庫 15】碎裂的水族箱": {
         "title": "【精選題庫 15】碎裂的水族箱",
-        "question": "一個男人在自家的客廳裡看電視，突然聽到『砰』的一聲巨響，接著是一陣玻璃碎裂的聲音。他急忙跑到隔邊房間查看，發現滿地都是碎玻璃和水，而他的寵物已經死在了地板上。奇怪的是，男人的身上 and 死去的寵物身上都沒有任何外傷。請問發生了什麼事？",
+        "question": "一個男人在自家的客廳裡看電視，突然聽到『砰』的一聲巨響，接着是一陣玻璃碎裂的聲音。他急忙跑到隔邊房間查看，發現滿地都是碎玻璃和水，而他的寵物已經死在了地板上。奇怪的是，男人的身上 and 死去的寵物身上都沒有任何外傷。請問發生了什麼事？",
         "answer": "他的寵物是一條魚。剛才一陣狂風（或地震）把房間窗戶吹開，撞碎了放在桌上的水族箱（魚缸）。水族箱爆裂，滿地都是碎玻璃和水，而那條小魚因為離開了水，最終在地上窒息而死。"
     }
 }
@@ -149,12 +149,8 @@ def generate_new_puzzle():
         response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
         return json.loads(response.text.strip())
     except Exception as e:
-        # 備用經典防呆題目
-        return {
-            "title": "【精選題庫 01】海龜肉湯",
-            "question": "一位船長走進餐廳點了一碗海龜湯，喝了幾口之後感覺味道有點奇怪，於是問店家這是什麼湯？店家回答：『這是用海龜肉做的湯。』船長聽完痛哭流涕，隨後就自殺了。請問發生了什麼事？",
-            "answer": "船長以前和船員們（包括他的兒子）遭遇海難困在荒島。當時其中一位船員做了一碗『海龜湯』給虛弱的船長喝，船長才活了下來，但兒子卻不見了。多年後船長在餐廳喝到真正的海龜湯，發現味道完全不同，這才明白當年他在荒島上喝的根本不是海龜湯，而是他死去兒子的肉。他因為極度崩潰與內疚而自殺。"
-        }
+        # 如果觸發 429 或是未設定成功，則安靜地退回經典題庫第一題
+        return PRESET_PUZZLES["【精選題庫 01】海龜肉湯"]
 
 # Session State 初始化
 if "chat_history" not in st.session_state:
@@ -196,11 +192,15 @@ current_puzzle = st.session_state.puzzle
 st.title("🔍 海龜湯攻防戰")
 st.info(f"**當前挑戰案件：{current_puzzle['title']}**\n\n{current_puzzle['question']}")
 
-# 🎯 獨立的破案驗證區
+# 🎯 獨立的破案驗證區（使用 st.form 封裝，避免打字時頻繁刷新）
 with st.expander("🕵️‍♂️ 【真相只有一個】我已掌握完整線索，點擊提交破案報告！"):
     st.markdown("當你覺得你已經用問答推理出完整的故事真相時，請在下方輸入你的終極推論：")
-    user_solve = st.text_input("請輸入你認為的完整故事真相（湯底）：", key="user_solve_input")
-    if st.button("🚀 提交破案報告", use_container_width=True):
+    
+    with st.form(key="solve_report_form"):
+        user_solve = st.text_input("請輸入你認為的完整故事真相（湯底）：", key="user_solve_input_field")
+        submit_report = st.form_submit_button("🚀 提交破案報告", use_container_width=True)
+        
+    if submit_report:
         if user_solve:
             with st.spinner("🔍 柯南正在審查你的推理報告..."):
                 try:
@@ -222,7 +222,10 @@ with st.expander("🕵️‍♂️ 【真相只有一個】我已掌握完整線
                     else:
                         st.error("❌ 唔... 雖然有些端倪，但還沒完全切中核心的故事邏輯，再繼續跟 AI 提問套取線索吧！")
                 except Exception as je:
-                    st.error(f"⚠️ 審查系統暫時忙碌，請稍後再試。錯誤：{je}")
+                    if "429" in str(je) or "quota" in str(je).lower():
+                        st.warning("⏳ 【偵探提示】目前推理審查太過頻繁（Google 429 限制），請等待約 30 秒後再重新點擊提交報告喔！🕒")
+                    else:
+                        st.error(f"⚠️ 審查系統暫時忙碌，請稍後再試。錯誤：{je}")
         else:
             st.warning("請先輸入你的推論再提交報告！")
 
@@ -235,7 +238,7 @@ for message in st.session_state.chat_history:
 
 # 輸入框邏輯
 if user_input := st.chat_input("推理時間！請輸入您的問題... (限制 50 字以內)", max_chars=50):
-    time.sleep(1)
+    time.sleep(0.5)
 
     st.chat_message("user").write(user_input)
     st.session_state.chat_history.append({"role": "user", "content": user_input})
@@ -282,7 +285,10 @@ if user_input := st.chat_input("推理時間！請輸入您的問題... (限制 
         ai_response = response.text.strip()
 
     except Exception as e:
-        ai_response = f"⚠️ 系統發生錯誤。錯誤訊息：{str(e)}"
+        if "429" in str(e) or "quota" in str(e).lower():
+            ai_response = "⏳ 【系統冷卻中】思緒太過激烈！目前觸發了 Google API 免費版的高頻限制（429 錯誤）。請稍微休息、靜待 30 秒後再輸入下一個問題，讓柯南重整一下思緒吧！"
+        else:
+            ai_response = f"⚠️ 系統發生錯誤。錯誤訊息：{str(e)}"
 
     st.chat_message("assistant").write(ai_response)
     st.session_state.chat_history.append({"role": "assistant", "content": ai_response})
