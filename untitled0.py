@@ -205,7 +205,7 @@ with st.expander("🕵️‍♂️ 【真相只有一個】我已掌握完整線
             with st.spinner("🔍 柯南正在審查你的推理報告..."):
                 try:
                     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    judge_model = genai.GenerativeModel('gemini-2.5-flash')
+                    judge_model = genai.GenerativeModel('gemini-3.5-flash')
                     judge_prompt = f'''
                     你是一個嚴格的海龜湯遊戲裁判。
                     【正確的故事真相湯底】：{current_puzzle['answer']}
