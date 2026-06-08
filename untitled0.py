@@ -11,7 +11,7 @@ Original file is located at
 import os
 
 print("🕵️ 正在啟動名偵探辦案設備...")
-!pip install -q streamlit google-generativeai
+#!pip install -q streamlit google-generativeai
 
 from google.colab import drive
 print("📂 請授予偵探存取權限，以連結你的 Google 雲端硬碟...")
